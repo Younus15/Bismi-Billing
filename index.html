@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BISMI DEPARTMENT STORE - Billing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrY0ZYl-M5ga2el_p1-0s6hNNAWuWbV5TwjA&s" alt="Store Logo" class="store-logo" onerror="this.src='https://via.placeholder.com/100/27ae60/ffffff?text=BISMI'">
+            <h1>BISMI DEPARTMENT STORE</h1>
+        </div>
+        <nav>
+            <a href="index.html" class="nav-link active">Billing</a>
+            <a href="manage.html" class="nav-link">Manage Items</a>
+            <a href="reports.html" class="nav-link">Reports</a>
+            <button class="nav-link logout-btn" onclick="logout(); window.location.href='login.html'">Logout</button>
+        </nav>
+    </header>
+
+    <main class="billing-container">
+        <div class="items-section">
+            <div class="items-header">
+                <h2>Items</h2>
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search items..." autocomplete="off">
+                    <button class="search-btn" id="searchBtn" title="Search">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                    <button class="clear-search-btn" id="clearSearchBtn" title="Clear search" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="items-grid" id="itemsGrid">
+                <!-- Items will be loaded dynamically -->
+            </div>
+        </div>
+
+        <div class="cart-section">
+            <h2>Cart</h2>
+            <div class="cart-items" id="cartItems">
+                <p class="empty-cart">Cart is empty. Click items to add them.</p>
+            </div>
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Total Selling Amount:</span>
+                    <span id="totalAmount">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>Total Purchase Cost:</span>
+                    <span id="totalCost">₹0.00</span>
+                </div>
+                <div class="summary-row profit">
+                    <span>Total Profit:</span>
+                    <span id="totalProfit">₹0.00</span>
+                </div>
+                <div class="cart-actions">
+                    <button class="btn btn-secondary" id="clearCart">Clear Cart</button>
+                    <button class="btn btn-primary" id="payNow">Pay Now</button>
+                    <button class="btn btn-success" id="printBill">Print Bill</button>
+                    <button class="btn btn-success" id="downloadCustomerPDF">Download Customer Bill</button>
+                    <button class="btn btn-success" id="downloadInternalPDF">Download Internal Bill</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Payment</h2>
+            <div class="qr-container">
+                <div id="qrCodePlaceholder">
+                    <p>Scan to Pay</p>
+                    <div class="qr-placeholder">
+                        <svg width="200" height="200" viewBox="0 0 200 200">
+                            <rect width="200" height="200" fill="#f0f0f0" stroke="#333" stroke-width="2"/>
+                            <text x="100" y="100" text-anchor="middle" font-size="14" fill="#666">QR Code</text>
+                        </svg>
+                    </div>
+                </div>
+                <p class="payment-info">Amount: <strong id="paymentAmount">₹0.00</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+
