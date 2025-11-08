@@ -18,6 +18,7 @@
         <nav>
             <a href="index.html" class="nav-link">Billing</a>
             <a href="manage.html" class="nav-link active">Manage Items</a>
+            <a href="balance.html" class="nav-link">Balance Items</a>
             <a href="reports.html" class="nav-link">Reports</a>
             <button class="nav-link logout-btn" onclick="logout(); window.location.href='login.html'">Logout</button>
         </nav>
@@ -81,6 +82,11 @@
                     <div class="form-group">
                         <label for="purchaseRate">Purchase Rate (Cost Price):</label>
                         <input type="number" id="purchaseRate" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemImageUrl">Image URL (Optional):</label>
+                        <input type="url" id="itemImageUrl" placeholder="https://example.com/image.jpg">
+                        <small style="color: #666; font-size: 0.9em;">Leave empty to use default image</small>
                     </div>
                     <div class="form-group">
                         <label>Profit Margin:</label>

@@ -281,7 +281,13 @@ const initializeDefaultItems = () => {
         // New items
         { name: 'VERKADALAI', unit: 'KG', storeRate: 150, purchaseRate: 134 },
         { name: 'TURMERIC POWDER', unit: 'KG', storeRate: 270, purchaseRate: 233 },
-        { name: 'GARAM MASALA', unit: 'KG', storeRate: 0, purchaseRate: 0 }
+        { name: 'GARAM MASALA', unit: 'KG', storeRate: 0, purchaseRate: 0 },
+        // New items
+        { name: 'SAMBAR POWDER', unit: 'KG', storeRate: 0, purchaseRate: 0, imageUrl: 'https://img.thecdn.in/271829/1672307948475_SKU-0576_0.jpeg?width=600&format=webp' },
+        { name: 'RASAM POWDER', unit: 'KG', storeRate: 0, purchaseRate: 0, imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNLXL1Rk693Kg829ThUNLwla-QmPntJesKtQ&s' },
+        { name: 'PEPPER POWDER', unit: 'KG', storeRate: 0, purchaseRate: 0, imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvdbt9AHIyv7JFAvpp_Aw6h7Xye46MujWpkQ&s' },
+        { name: 'MALLI POWDER', unit: 'KG', storeRate: 0, purchaseRate: 0, imageUrl: 'https://m.media-amazon.com/images/I/71uyrktjLhL.jpg' },
+        { name: 'GUNDU MILAGAI', unit: 'KG', storeRate: 0, purchaseRate: 0, imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuj2gr5Qr3vMT3ZDxOgAhqThTH9SK0fv2ZqQ&s' }
     ];
     
     // Add IDs and calculate profit margins

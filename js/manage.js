@@ -134,6 +134,7 @@ function addItem() {
     document.getElementById('modalTitle').textContent = 'Add Item';
     document.getElementById('itemForm').reset();
     document.getElementById('itemId').value = '';
+    document.getElementById('itemImageUrl').value = '';
     updateProfitDisplay();
     showItemModal();
 }
@@ -150,6 +151,7 @@ window.editItem = function(itemId) {
     document.getElementById('itemUnit').value = item.unit;
     document.getElementById('storeRate').value = item.storeRate;
     document.getElementById('purchaseRate').value = item.purchaseRate;
+    document.getElementById('itemImageUrl').value = item.imageUrl || '';
     updateProfitDisplay();
     showItemModal();
 }
@@ -175,10 +177,24 @@ function saveItem(e) {
     const unit = document.getElementById('itemUnit').value;
     const storeRate = parseFloat(document.getElementById('storeRate').value);
     const purchaseRate = parseFloat(document.getElementById('purchaseRate').value);
+    const imageUrl = document.getElementById('itemImageUrl').value.trim();
     
     if (!name || storeRate < 0 || purchaseRate < 0) {
         alert('Please fill in all fields with valid values.');
         return;
+    }
+    
+    const itemData = {
+        name,
+        unit,
+        storeRate,
+        purchaseRate,
+        profitMargin: storeRate - purchaseRate
+    };
+    
+    // Add imageUrl only if provided
+    if (imageUrl) {
+        itemData.imageUrl = imageUrl;
     }
     
     if (itemId) {
@@ -187,23 +203,19 @@ function saveItem(e) {
         if (index !== -1) {
             items[index] = {
                 id: parseInt(itemId),
-                name,
-                unit,
-                storeRate,
-                purchaseRate,
-                profitMargin: storeRate - purchaseRate
+                ...itemData
             };
+            // Remove imageUrl if it was cleared
+            if (!imageUrl && items[index].imageUrl) {
+                delete items[index].imageUrl;
+            }
         }
     } else {
         // Add new item
         const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
         items.push({
             id: newId,
-            name,
-            unit,
-            storeRate,
-            purchaseRate,
-            profitMargin: storeRate - purchaseRate
+            ...itemData
         });
     }
     

@@ -111,20 +111,34 @@ function renderItems(searchTerm = '') {
             return 'https://m.media-amazon.com/images/I/71eYFtuTdTL.jpg';
         } else if (name.includes('GARAM MASALA') || name.includes('GARAM')) {
             return 'https://www.bbassets.com/media/uploads/p/l/40248540_1-sakthi-garam-masala.jpg';
+        } else if (name.includes('SAMBAR') && name.includes('POWDER')) {
+            return 'https://img.thecdn.in/271829/1672307948475_SKU-0576_0.jpeg?width=600&format=webp';
+        } else if (name.includes('RASAM') && name.includes('POWDER')) {
+            return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNLXL1Rk693Kg829ThUNLwla-QmPntJesKtQ&s';
+        } else if (name.includes('PEPPER') && name.includes('POWDER')) {
+            return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvdbt9AHIyv7JFAvpp_Aw6h7Xye46MujWpkQ&s';
+        } else if (name.includes('MALLI') && name.includes('POWDER')) {
+            return 'https://m.media-amazon.com/images/I/71uyrktjLhL.jpg';
+        } else if (name.includes('GUNDU') && name.includes('MILAGAI')) {
+            return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuj2gr5Qr3vMT3ZDxOgAhqThTH9SK0fv2ZqQ&s';
         }
         
         // Default fallback
         return 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=300&h=300&fit=crop';
     };
     
-    itemsGrid.innerHTML = filteredItems.map(item => `
+    itemsGrid.innerHTML = filteredItems.map(item => {
+        // Check if item has custom imageUrl first, otherwise use getItemImage function
+        const imageUrl = item.imageUrl || getItemImage(item.name);
+        return `
         <div class="item-card" data-id="${item.id}">
-            <img src="${getItemImage(item.name)}" alt="${item.name}" class="item-image" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/150/27ae60/ffffff?text=' + encodeURIComponent('${item.name.substring(0,10)}')">
+            <img src="${imageUrl}" alt="${item.name}" class="item-image" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/150/27ae60/ffffff?text=' + encodeURIComponent('${item.name.substring(0,10)}')">
             <h3>${item.name}</h3>
             <div class="rate">${formatCurrency(item.storeRate)}</div>
             <div class="unit">per ${item.unit}</div>
         </div>
-    `).join('');
+    `;
+    }).join('');
     
     // Add click event to each item card
     itemsGrid.querySelectorAll('.item-card').forEach(card => {
