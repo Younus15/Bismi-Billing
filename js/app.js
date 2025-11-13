@@ -340,6 +340,7 @@ function generateBill() {
         return;
     }
     
+    const { sequence, billNumber } = getNextBillIdentifiers();
     let totalAmount = 0;
     let totalCost = 0;
     
@@ -365,7 +366,8 @@ function generateBill() {
     });
     
     const billData = {
-        billNumber: generateBillNumber(),
+        sequence,
+        billNumber,
         date: formatDate(new Date()),
         items: billItems,
         totalAmount: totalAmount,

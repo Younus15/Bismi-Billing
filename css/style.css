@@ -493,6 +493,11 @@ nav {
     animation: slideIn 0.3s;
 }
 
+.modal-content.modal-large {
+    max-width: 960px;
+    width: 95%;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -638,6 +643,11 @@ nav {
     gap: 0.5rem;
 }
 
+.action-buttons .btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+}
+
 .btn-edit {
     background: #3498db;
     color: white;
@@ -664,6 +674,204 @@ nav {
 
 .btn-delete:hover {
     background: #c0392b;
+}
+
+.btn-download {
+    background: #16a085;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-download:hover {
+    background: #13856d;
+}
+
+.btn-outline {
+    background: transparent;
+    color: #27ae60;
+    border: 2px solid #27ae60;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-outline:hover {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #3498db;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.9rem;
+    padding: 0;
+}
+
+.btn-link:hover {
+    color: #21618c;
+}
+
+.edit-bill-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    background: #f8fdf8;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #e0f3e6;
+}
+
+.edit-bill-meta div span {
+    display: block;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.edit-bill-meta div strong {
+    font-size: 1.05rem;
+    color: #2c3e50;
+}
+
+.edit-bill-date-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.edit-bill-date-field input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #cfe5d6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #fdfefc;
+    color: #2c3e50;
+}
+
+.edit-bill-date-field input[type="date"]:focus {
+    outline: none;
+    border-color: #27ae60;
+    box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.15);
+}
+
+.edit-bill-date-field small {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+.edit-bill-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.edit-bill-table th,
+.edit-bill-table td {
+    border-bottom: 1px solid #ecf0f1;
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.edit-bill-table th {
+    background: #27ae60;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.edit-bill-table td.amount,
+.edit-bill-table td.cost,
+.edit-bill-table td.profit {
+    text-align: right;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.edit-bill-table input[type="number"] {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #cfe5d6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #fdfefc;
+}
+
+.edit-bill-table input[type="number"]:focus {
+    outline: none;
+    border-color: #27ae60;
+    box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.15);
+}
+
+.remove-row-btn {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.remove-row-btn:hover {
+    color: #c0392b;
+}
+
+.edit-bill-totals {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.edit-bill-totals div {
+    text-align: right;
+}
+
+.edit-bill-totals span {
+    display: block;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.edit-bill-totals strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+.edit-bill-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.edit-bill-actions-right {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.edit-bill-empty {
+    padding: 1rem;
+    text-align: center;
+    background: #fef6f6;
+    border: 1px dashed #e74c3c;
+    border-radius: 8px;
+    color: #c0392b;
+    font-weight: 500;
 }
 
 /* Form */

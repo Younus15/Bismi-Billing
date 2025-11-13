@@ -5,6 +5,37 @@ let filteredBills = [];
 let salesProfitChart = null;
 let dailySalesChart = null;
 let profitCostChart = null;
+let editingBill = null;
+let editingBillOriginal = null;
+const DEFAULT_TIMESTAMP_HOUR = 12;
+
+const toInputDateValue = (displayDate) => {
+    if (!displayDate || typeof displayDate !== 'string') return '';
+    const [day, month, year] = displayDate.split('-');
+    if (!day || !month || !year) return '';
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
+
+const toDisplayDateValue = (inputDateValue) => {
+    if (!inputDateValue || typeof inputDateValue !== 'string') return '';
+    const [year, month, day] = inputDateValue.split('-');
+    if (!year || !month || !day) return '';
+    return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+};
+
+const getTimestampFromBillDate = (dateString) => {
+    if (!dateString || typeof dateString !== 'string') {
+        return new Date().toISOString();
+    }
+
+    const [day, month, year] = dateString.split('-').map(part => parseInt(part, 10));
+    if (!day || !month || !year) {
+        return new Date().toISOString();
+    }
+
+    const date = new Date(year, month - 1, day, DEFAULT_TIMESTAMP_HOUR, 0, 0, 0);
+    return date.toISOString();
+};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,7 +47,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Load bills from localStorage
 function loadBills() {
-    bills = Storage.get('bills') || [];
+    const storedBills = Storage.get('bills') || [];
+    const { normalizedBills, changed } = normalizeBills(storedBills);
+
+    if (changed) {
+        Storage.set('bills', normalizedBills);
+    }
+
+    bills = normalizedBills;
     filteredBills = bills;
     renderReports();
     updateSummary();
@@ -51,6 +89,9 @@ function renderReports() {
                 <td>
                     <div class="action-buttons">
                         <button class="btn-view" onclick="viewBillDetails('${bill.billNumber}')">View</button>
+                        <button class="btn-download" onclick="downloadBill('${bill.billNumber}', 'customer')">Customer</button>
+                        <button class="btn-download" onclick="downloadBill('${bill.billNumber}', 'internal')">Internal</button>
+                        <button class="btn-edit" onclick="openEditBill('${bill.billNumber}')">Edit</button>
                         <button class="btn-delete" onclick="deleteBill('${bill.billNumber}')">Delete</button>
                     </div>
                 </td>
@@ -206,8 +247,7 @@ window.viewBillDetails = function(billNumber) {
 
 // Close bill details modal
 function closeBillDetailsModal() {
-    const modal = document.getElementById('billDetailsModal');
-    modal.classList.remove('show');
+    closeModalById('billDetailsModal');
 }
 
 // Setup event listeners
@@ -230,18 +270,22 @@ function setupEventListeners() {
     document.getElementById('applyFilter').addEventListener('click', applyDateRangeFilter);
     
     // Close modal buttons
-    document.querySelectorAll('.close').forEach(btn => {
-        btn.addEventListener('click', () => {
-            closeBillDetailsModal();
+    document.querySelectorAll('[data-close-modal]').forEach(btn => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const targetModal = btn.dataset.closeModal;
+            closeModalById(targetModal);
         });
     });
     
     // Close modal on outside click
     window.addEventListener('click', (e) => {
-        const modal = document.getElementById('billDetailsModal');
-        if (e.target === modal) {
-            closeBillDetailsModal();
-        }
+        ['billDetailsModal', 'editBillModal'].forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (modal && e.target === modal) {
+                closeModalById(modalId);
+            }
+        });
     });
     
     // Set default dates
@@ -294,6 +338,396 @@ function deleteSelectedBills() {
         loadBills();
         applyDateRangeFilter(); // Reapply current filter
         alert(`${billNumbers.length} bill(s) deleted successfully!`);
+    }
+};
+
+function closeModalById(modalId) {
+    if (!modalId) return;
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+    }
+
+    if (modalId === 'editBillModal') {
+        editingBill = null;
+        editingBillOriginal = null;
+    }
+}
+
+function normalizeBills(rawBills = []) {
+    let changed = false;
+    const normalizedBills = rawBills.map(bill => {
+        if (!bill) return bill;
+        const draft = rebuildBillTotals({
+            ...bill,
+            items: (bill.items || []).map(item => ({ ...item }))
+        });
+
+        const sequence = getBillSequenceValue(draft);
+        if (sequence !== undefined && sequence !== null && draft.sequence !== sequence) {
+            draft.sequence = sequence;
+            changed = true;
+        }
+
+        const desiredTimestamp = getTimestampFromBillDate(draft.date);
+        if (!draft.timestamp || typeof draft.timestamp !== 'string') {
+            draft.timestamp = desiredTimestamp;
+            changed = true;
+        }
+
+        if (draft.timestamp !== desiredTimestamp) {
+            draft.timestamp = desiredTimestamp;
+            changed = true;
+        }
+
+        return draft;
+    });
+
+    return { normalizedBills, changed };
+}
+
+const recalculateEditItem = (item) => {
+    const quantity = Number(item.quantity) || 0;
+    const storeRate = Number(item.storeRate) || 0;
+    const purchaseRate = Number(item.purchaseRate) || 0;
+    const amount = roundToTwo(storeRate * quantity);
+    const cost = roundToTwo(purchaseRate * quantity);
+    const profit = roundToTwo(amount - cost);
+
+    return {
+        ...item,
+        quantity,
+        storeRate,
+        purchaseRate,
+        amount,
+        cost,
+        profit
+    };
+};
+
+const updateEditRowDisplay = (rowElement, item) => {
+    if (!rowElement) return;
+    const amountCell = rowElement.querySelector('[data-role="amount"]');
+    const costCell = rowElement.querySelector('[data-role="cost"]');
+    const profitCell = rowElement.querySelector('[data-role="profit"]');
+
+    if (amountCell) amountCell.textContent = formatCurrency(item.amount);
+    if (costCell) costCell.textContent = formatCurrency(item.cost);
+    if (profitCell) profitCell.textContent = formatCurrency(item.profit);
+};
+
+const updateEditBillMeta = () => {
+    if (!editingBill) return;
+    const itemsCountEl = document.getElementById('editBillItemsCount');
+    const grandTotalEl = document.getElementById('editBillGrandTotal');
+    const dateDisplayEl = document.getElementById('editBillDateDisplay');
+    const dateInputEl = document.getElementById('editBillDateInput');
+
+    if (itemsCountEl) {
+        itemsCountEl.textContent = editingBill.items.length;
+    }
+
+    if (grandTotalEl) {
+        grandTotalEl.textContent = formatCurrency(editingBill.totalAmount || 0);
+    }
+
+    if (dateDisplayEl) {
+        dateDisplayEl.textContent = editingBill.date || '';
+    }
+
+    if (dateInputEl) {
+        dateInputEl.value = toInputDateValue(editingBill.date);
+    }
+};
+
+const renderEditBillTotals = () => {
+    const totalsContainer = document.getElementById('editBillTotals');
+    if (!totalsContainer || !editingBill) return;
+
+    const totals = editingBill.items.reduce((acc, item) => {
+        acc.amount += item.amount;
+        acc.cost += item.cost;
+        acc.profit += item.profit;
+        return acc;
+    }, { amount: 0, cost: 0, profit: 0 });
+
+    editingBill.totalAmount = roundToTwo(totals.amount);
+    editingBill.totalCost = roundToTwo(totals.cost);
+    editingBill.profit = roundToTwo(totals.profit);
+
+    totalsContainer.innerHTML = `
+        <div>
+            <span>Total Selling Amount</span>
+            <strong>${formatCurrency(editingBill.totalAmount)}</strong>
+        </div>
+        <div>
+            <span>Total Purchase Cost</span>
+            <strong>${formatCurrency(editingBill.totalCost)}</strong>
+        </div>
+        <div>
+            <span>Total Profit</span>
+            <strong>${formatCurrency(editingBill.profit)}</strong>
+        </div>
+    `;
+
+    updateEditBillMeta();
+};
+
+const renderEditBillRows = () => {
+    const tbody = document.getElementById('editBillTableBody');
+    const emptyState = document.getElementById('editBillEmptyState');
+    if (!tbody || !editingBill) return;
+
+    if (editingBill.items.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        }
+        renderEditBillTotals();
+        return;
+    }
+
+    if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+
+    tbody.innerHTML = editingBill.items.map((item, index) => `
+        <tr data-index="${index}">
+            <td>${item.name}</td>
+            <td>
+                <input type="number" step="0.01" min="0" value="${item.quantity}" data-field="quantity">
+            </td>
+            <td>${item.unit || '-'}</td>
+            <td>
+                <input type="number" step="0.01" min="0" value="${item.storeRate}" data-field="storeRate">
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" value="${item.purchaseRate}" data-field="purchaseRate">
+            </td>
+            <td class="amount" data-role="amount">${formatCurrency(item.amount)}</td>
+            <td class="cost" data-role="cost">${formatCurrency(item.cost)}</td>
+            <td class="profit profit-cell" data-role="profit">${formatCurrency(item.profit)}</td>
+            <td>
+                <button type="button" class="remove-row-btn" data-action="remove">Remove</button>
+            </td>
+        </tr>
+    `).join('');
+
+    renderEditBillTotals();
+};
+
+const handleEditTableInput = (event) => {
+    const target = event.target;
+    if (!target.matches('input[data-field]') || !editingBill) return;
+
+    const row = target.closest('tr[data-index]');
+    if (!row) return;
+
+    const index = parseInt(row.dataset.index, 10);
+    if (Number.isNaN(index)) return;
+
+    const field = target.dataset.field;
+    let value = parseFloat(target.value);
+    if (Number.isNaN(value) || value < 0) {
+        value = 0;
+        target.value = value;
+    }
+
+    editingBill.items[index][field] = value;
+    editingBill.items[index] = recalculateEditItem(editingBill.items[index]);
+    updateEditRowDisplay(row, editingBill.items[index]);
+    renderEditBillTotals();
+};
+
+const handleEditTableClick = (event) => {
+    const target = event.target;
+    if (!editingBill) return;
+
+    if (target.dataset.action === 'remove') {
+        const row = target.closest('tr[data-index]');
+        if (!row) return;
+        const index = parseInt(row.dataset.index, 10);
+        if (Number.isNaN(index)) return;
+
+        editingBill.items.splice(index, 1);
+        renderEditBillRows();
+        renderEditBillTotals();
+    }
+};
+
+const resetEditBillChanges = () => {
+    if (!editingBillOriginal) return;
+    editingBill = JSON.parse(JSON.stringify(editingBillOriginal));
+    renderEditBillRows();
+    renderEditBillTotals();
+};
+
+const saveEditedBill = (event) => {
+    event.preventDefault();
+    if (!editingBill) return;
+
+    editingBill.items = editingBill.items.map(item => recalculateEditItem(item));
+    renderEditBillTotals();
+    editingBill.timestamp = getTimestampFromBillDate(editingBill.date);
+
+    const updatedBill = {
+        ...editingBill,
+        items: editingBill.items.map(item => ({ ...item }))
+    };
+
+    const billIndex = bills.findIndex(b => b.billNumber === updatedBill.billNumber);
+    if (billIndex !== -1) {
+        bills[billIndex] = updatedBill;
+    }
+
+    filteredBills = filteredBills.map(b => b.billNumber === updatedBill.billNumber ? updatedBill : b);
+    Storage.set('bills', bills);
+
+    renderReports();
+    updateSummary();
+    editingBillOriginal = JSON.parse(JSON.stringify(updatedBill));
+    closeModalById('editBillModal');
+    alert('Bill updated successfully!');
+};
+
+const renderEditBillModal = () => {
+    const container = document.getElementById('editBillContent');
+    if (!container) return;
+
+    if (!editingBill) {
+        container.innerHTML = '<p>No bill selected.</p>';
+        return;
+    }
+
+    const inputDateValue = toInputDateValue(editingBill.date);
+
+    container.innerHTML = `
+        <div class="edit-bill-meta">
+            <div>
+                <span>Bill Number</span>
+                <strong id="editBillNumber">${editingBill.billNumber}</strong>
+            </div>
+            <div>
+                <span>Date</span>
+                <div class="edit-bill-date-field">
+                    <input type="date" id="editBillDateInput" value="${inputDateValue}">
+                    <small id="editBillDateDisplay">${editingBill.date}</small>
+                </div>
+            </div>
+            <div>
+                <span>Items</span>
+                <strong id="editBillItemsCount">${editingBill.items.length}</strong>
+            </div>
+            <div>
+                <span>Grand Total</span>
+                <strong id="editBillGrandTotal">${formatCurrency(editingBill.totalAmount)}</strong>
+            </div>
+        </div>
+        <form id="editBillForm">
+            <div class="table-wrapper">
+                <table class="edit-bill-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Unit</th>
+                            <th>Store Rate</th>
+                            <th>Purchase Rate</th>
+                            <th>Amount</th>
+                            <th>Cost</th>
+                            <th>Profit</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="editBillTableBody"></tbody>
+                </table>
+            </div>
+            <div id="editBillEmptyState" class="edit-bill-empty" style="display: none;">
+                No items in this bill. Add items from the billing page if needed.
+            </div>
+            <div class="edit-bill-totals" id="editBillTotals"></div>
+            <div class="edit-bill-actions">
+                <button type="button" class="btn-link" id="resetBillChanges">Reset Changes</button>
+                <div class="edit-bill-actions-right">
+                    <button type="button" class="btn btn-secondary" id="cancelEditBillBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    `;
+
+    const tableBody = document.getElementById('editBillTableBody');
+    tableBody.addEventListener('input', handleEditTableInput);
+    tableBody.addEventListener('click', handleEditTableClick);
+
+    document.getElementById('resetBillChanges').addEventListener('click', (e) => {
+        e.preventDefault();
+        resetEditBillChanges();
+    });
+
+    document.getElementById('cancelEditBillBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        closeModalById('editBillModal');
+    });
+
+    document.getElementById('editBillForm').addEventListener('submit', saveEditedBill);
+    const dateInputEl = document.getElementById('editBillDateInput');
+    if (dateInputEl) {
+        dateInputEl.addEventListener('change', handleEditDateChange);
+    }
+
+    renderEditBillRows();
+};
+
+const handleEditDateChange = (event) => {
+    if (!editingBill) return;
+    const value = event.target.value;
+    if (!value) return;
+
+    const displayDate = toDisplayDateValue(value);
+    if (!displayDate) return;
+
+    editingBill.date = displayDate;
+    editingBill.timestamp = getTimestampFromBillDate(displayDate);
+    updateEditBillMeta();
+};
+
+window.downloadBill = function(billNumber, type) {
+    const bill = bills.find(b => b.billNumber === billNumber);
+    if (!bill) {
+        alert(`Bill ${billNumber} not found.`);
+        return;
+    }
+
+    const preparedBill = rebuildBillTotals({
+        ...bill,
+        items: bill.items.map(item => ({ ...item }))
+    });
+
+    if (type === 'customer') {
+        generateCustomerPDF(preparedBill);
+    } else if (type === 'internal') {
+        generateInternalPDF(preparedBill);
+    } else {
+        alert('Invalid download option selected.');
+    }
+};
+
+window.openEditBill = function(billNumber) {
+    const bill = bills.find(b => b.billNumber === billNumber);
+    if (!bill) {
+        alert(`Bill ${billNumber} not found.`);
+        return;
+    }
+
+    editingBillOriginal = JSON.parse(JSON.stringify(rebuildBillTotals(bill)));
+    editingBill = JSON.parse(JSON.stringify(rebuildBillTotals(bill)));
+
+    renderEditBillModal();
+
+    const modal = document.getElementById('editBillModal');
+    if (modal) {
+        modal.classList.add('show');
     }
 };
 
