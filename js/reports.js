@@ -7,6 +7,8 @@ let dailySalesChart = null;
 let profitCostChart = null;
 let editingBill = null;
 let editingBillOriginal = null;
+let items = [];
+let stockData = [];
 const DEFAULT_TIMESTAMP_HOUR = 12;
 
 const toInputDateValue = (displayDate) => {
@@ -39,11 +41,24 @@ const getTimestampFromBillDate = (dateString) => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    loadItems();
+    loadStockData();
     loadBills();
     setupEventListeners();
     applyFilter('month'); // Default to current month
     initializeCharts();
+    renderStockBalance();
 });
+
+// Load items from localStorage
+function loadItems() {
+    items = Storage.get('items') || [];
+}
+
+// Load stock data from localStorage
+function loadStockData() {
+    stockData = Storage.get('stockData') || [];
+}
 
 // Load bills from localStorage
 function loadBills() {
@@ -58,6 +73,53 @@ function loadBills() {
     filteredBills = bills;
     renderReports();
     updateSummary();
+}
+
+// Render stock balance table
+function renderStockBalance() {
+    const tbody = document.getElementById('stockBalanceTableBody');
+    
+    if (!tbody) return;
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No items found. Please add items in Manage Items page first.</td></tr>';
+        return;
+    }
+    
+    // Create a map of stock data by item ID
+    const stockMap = {};
+    stockData.forEach(stock => {
+        stockMap[stock.itemId] = stock;
+    });
+    
+    // Filter items to show only those with balance > 0
+    const itemsWithStock = items.filter(item => {
+        const stock = stockMap[item.id];
+        const currentStock = stock ? stock.quantity : 0;
+        return currentStock > 0;
+    });
+    
+    if (itemsWithStock.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No items with stock balance available.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = itemsWithStock.map(item => {
+        const stock = stockMap[item.id];
+        const currentStock = stock ? stock.quantity : 0;
+        const lastUpdated = stock ? formatDate(new Date(stock.lastUpdated)) : 'Never';
+        
+        return `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.unit}</td>
+                <td class="stock-quantity ${currentStock <= 0 ? 'low-stock' : currentStock <= 10 ? 'medium-stock' : ''}">
+                    ${currentStock.toFixed(2)} ${item.unit}
+                </td>
+                <td>${lastUpdated}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // Render reports table
@@ -298,6 +360,14 @@ function setupEventListeners() {
     
     // Delete selected button
     document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedBills);
+    
+    // Refresh stock data when page becomes visible (e.g., when returning from balance page)
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            loadStockData();
+            renderStockBalance();
+        }
+    });
 }
 
 // Delete a single bill

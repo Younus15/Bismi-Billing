@@ -3,10 +3,12 @@
 let cart = [];
 let items = [];
 let filteredItems = [];
+let stockData = [];
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadItems();
+    loadStockData();
     loadCart();
     setupEventListeners();
     setupSearch();
@@ -24,6 +26,11 @@ function loadItems() {
     renderItems();
 }
 
+// Load stock data from localStorage
+function loadStockData() {
+    stockData = Storage.get('stockData') || [];
+}
+
 // Render items grid
 function renderItems(searchTerm = '') {
     const itemsGrid = document.getElementById('itemsGrid');
@@ -33,7 +40,13 @@ function renderItems(searchTerm = '') {
         return;
     }
     
-    // Filter items based on search term
+    // Create a map of stock data by item ID for quick lookup
+    const stockMap = {};
+    stockData.forEach(stock => {
+        stockMap[stock.itemId] = stock;
+    });
+    
+    // Filter items based on search term (show all items, not filtered by stock)
     if (searchTerm.trim() === '') {
         filteredItems = items;
     } else {
@@ -130,34 +143,97 @@ function renderItems(searchTerm = '') {
     itemsGrid.innerHTML = filteredItems.map(item => {
         // Check if item has custom imageUrl first, otherwise use getItemImage function
         const imageUrl = item.imageUrl || getItemImage(item.name);
+        const stock = stockMap[item.id];
+        const currentStock = stock ? stock.quantity : 0;
+        const stockColor = currentStock <= 0 ? '#e74c3c' : (currentStock <= 10 ? '#f39c12' : '#27ae60');
+        
+        // Check if item is in cart
+        const cartItem = cart.find(c => c.id === item.id);
+        const cartQuantity = cartItem ? cartItem.quantity : 0;
+        const showControls = cartQuantity > 0.01;
+        
         return `
-        <div class="item-card" data-id="${item.id}">
-            <img src="${imageUrl}" alt="${item.name}" class="item-image" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/150/27ae60/ffffff?text=' + encodeURIComponent('${item.name.substring(0,10)}')">
+        <div class="item-card" data-id="${item.id}" style="cursor: pointer;" onclick="if(!event.target.closest('.item-quantity-controls') && !event.target.closest('button') && !event.target.closest('input')) { addToCart(${item.id}); }">
+            <img src="${imageUrl}" alt="${item.name}" class="item-image" loading="lazy" style="cursor: pointer;" onerror="this.onerror=null; this.src='https://via.placeholder.com/150/27ae60/ffffff?text=' + encodeURIComponent('${item.name.substring(0,10)}')">
             <h3>${item.name}</h3>
             <div class="rate">${formatCurrency(item.storeRate)}</div>
             <div class="unit">per ${item.unit}</div>
+            <div class="stock-info" style="font-size: 0.85em; color: ${stockColor}; margin-top: 5px; font-weight: 500;">
+                Stock: ${currentStock.toFixed(2)} ${item.unit}
+            </div>
+            ${showControls ? `
+            <div class="item-quantity-controls" style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button class="qty-btn-minus" onclick="event.stopPropagation(); updateItemQuantityInCard(${item.id}, -0.25)" style="width: 28px; height: 28px; border: 1px solid #27ae60; background: white; color: #27ae60; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#27ae60'">-</button>
+                <input type="number" 
+                       class="item-qty-input" 
+                       id="itemQty_${item.id}"
+                       value="${cartQuantity.toFixed(2).replace(/\.?0+$/, '')}" 
+                       min="0.01" 
+                       step="0.01" 
+                       style="width: 70px; text-align: center; border: 1px solid #27ae60; border-radius: 4px; padding: 4px; font-size: 14px;"
+                       onchange="updateCartQuantityFromCard(${item.id})"
+                       onclick="event.stopPropagation();"
+                       onfocus="event.stopPropagation();">
+                <button class="qty-btn-plus" onclick="event.stopPropagation(); updateItemQuantityInCard(${item.id}, 0.25)" style="width: 28px; height: 28px; border: 1px solid #27ae60; background: white; color: #27ae60; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#27ae60'">+</button>
+            </div>
+            ` : ''}
         </div>
     `;
     }).join('');
-    
-    // Add click event to each item card
-    itemsGrid.querySelectorAll('.item-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const itemId = parseInt(card.dataset.id);
-            addToCart(itemId);
-        });
-    });
 }
 
-// Add item to cart
-function addToCart(itemId) {
+// Update item quantity in the item card (for items already in cart)
+window.updateItemQuantityInCard = function(itemId, change) {
+    const cartItem = cart.find(c => c.id === itemId);
+    if (!cartItem) return;
+    
+    const newQuantity = Math.max(0.01, cartItem.quantity + change);
+    
+    if (newQuantity <= 0.01) {
+        // Remove from cart if quantity becomes too small
+        removeFromCart(itemId);
+        return;
+    }
+    
+    cartItem.quantity = newQuantity;
+    saveCart();
+    renderCart();
+    updateSummary();
+    renderItems(); // Refresh to show/hide controls
+}
+
+// Update cart quantity from input field in item card
+window.updateCartQuantityFromCard = function(itemId) {
+    const input = document.getElementById(`itemQty_${itemId}`);
+    if (!input) return;
+    
+    const cartItem = cart.find(c => c.id === itemId);
+    if (!cartItem) return;
+    
+    let value = parseFloat(input.value);
+    
+    if (isNaN(value) || value < 0.01) {
+        // Remove from cart if invalid or too small
+        removeFromCart(itemId);
+        return;
+    }
+    
+    cartItem.quantity = value;
+    saveCart();
+    renderCart();
+    updateSummary();
+    renderItems(); // Refresh to update display
+}
+
+// Add item to cart (global function for onclick handlers)
+window.addToCart = function(itemId, quantity = 1) {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
     
     const existingItem = cart.find(c => c.id === itemId);
     
     if (existingItem) {
-        existingItem.quantity += 1;
+        existingItem.quantity += quantity;
     } else {
         cart.push({
             id: item.id,
@@ -165,13 +241,14 @@ function addToCart(itemId) {
             unit: item.unit,
             storeRate: item.storeRate,
             purchaseRate: item.purchaseRate,
-            quantity: 1
+            quantity: quantity
         });
     }
     
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display and show controls
 }
 
 // Remove item from cart (global function)
@@ -180,6 +257,7 @@ window.removeFromCart = function(itemId) {
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display
 }
 
 // Update quantity by increment/decrement
@@ -187,15 +265,18 @@ window.updateQuantity = function(itemId, change) {
     const item = cart.find(c => c.id === itemId);
     if (!item) return;
     
-    item.quantity += change;
+    const newQuantity = item.quantity + change;
     
-    if (item.quantity <= 0) {
+    if (newQuantity <= 0) {
         removeFromCart(itemId);
-    } else {
-        saveCart();
-        renderCart();
-        updateSummary();
+        return;
     }
+    
+    item.quantity = newQuantity;
+    saveCart();
+    renderCart();
+    updateSummary();
+    renderItems(); // Refresh to update stock display
 }
 
 // Update quantity manually (from input field)
@@ -214,12 +295,14 @@ window.updateQuantityManual = function(itemId, value) {
     
     if (newQuantity === 0) {
         removeFromCart(itemId);
-    } else {
-        item.quantity = newQuantity;
-        saveCart();
-        renderCart();
-        updateSummary();
+        return;
     }
+    
+    item.quantity = newQuantity;
+    saveCart();
+    renderCart();
+    updateSummary();
+    renderItems(); // Refresh to update stock display
 }
 
 // Set quantity to specific value (for fraction buttons)
@@ -231,6 +314,7 @@ window.setQuantity = function(itemId, quantity) {
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display
 }
 
 // Render cart
@@ -242,10 +326,11 @@ function renderCart() {
         return;
     }
     
-    cartItems.innerHTML = cart.map(item => {
+    cartItems.innerHTML = cart.map((item, index) => {
         const amount = item.storeRate * item.quantity;
         const cost = item.purchaseRate * item.quantity;
         const profit = amount - cost;
+        const serialNo = index + 1;
         
         // Format quantity display (show fractions for common values)
         const formatQuantity = (qty) => {
@@ -259,8 +344,11 @@ function renderCart() {
         return `
             <div class="cart-item" data-item-id="${item.id}">
                 <div class="cart-item-info">
-                    <h4>${item.name}</h4>
-                    <div class="item-details">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: bold; color: #27ae60; min-width: 25px;">${serialNo}.</span>
+                        <h4 style="margin: 0; flex: 1;">${item.name}</h4>
+                    </div>
+                    <div class="item-details" style="margin-left: 35px;">
                         ${formatCurrency(item.storeRate)} × ${formatQuantity(item.quantity)} ${item.unit}
                         <br>
                         <small>Amount: ${formatCurrency(amount)}</small>
@@ -340,6 +428,9 @@ function generateBill() {
         return;
     }
     
+    // Reload stock data to ensure we have the latest
+    loadStockData();
+    
     const { sequence, billNumber } = getNextBillIdentifiers();
     let totalAmount = 0;
     let totalCost = 0;
@@ -376,6 +467,31 @@ function generateBill() {
         timestamp: new Date().toISOString()
     };
     
+    // Subtract quantities from stock
+    for (const cartItem of cart) {
+        const stockIndex = stockData.findIndex(s => s.itemId === cartItem.id);
+        
+        if (stockIndex !== -1) {
+            const newQuantity = Math.max(0, stockData[stockIndex].quantity - cartItem.quantity);
+            stockData[stockIndex].quantity = newQuantity;
+            stockData[stockIndex].lastUpdated = new Date().toISOString();
+        } else {
+            // If stock entry doesn't exist, create one with negative balance (shouldn't happen, but handle it)
+            const item = items.find(i => i.id === cartItem.id);
+            if (item) {
+                stockData.push({
+                    itemId: cartItem.id,
+                    itemName: cartItem.name,
+                    quantity: 0,
+                    lastUpdated: new Date().toISOString()
+                });
+            }
+        }
+    }
+    
+    // Save updated stock data
+    Storage.set('stockData', stockData);
+    
     // Save bill to localStorage
     const bills = Storage.get('bills') || [];
     bills.push(billData);
@@ -392,6 +508,8 @@ function downloadCustomerPDF() {
     }
     
     const billData = generateBill();
+    if (!billData) return; // Stock check failed
+    
     generateCustomerPDF(billData);
     
     // Clear cart after generating bill
@@ -399,6 +517,7 @@ function downloadCustomerPDF() {
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display
     
     alert('Customer bill generated and downloaded successfully!');
 }
@@ -411,6 +530,8 @@ function downloadInternalPDF() {
     }
     
     const billData = generateBill();
+    if (!billData) return; // Stock check failed
+    
     generateInternalPDF(billData);
     
     // Clear cart after generating bill
@@ -418,6 +539,7 @@ function downloadInternalPDF() {
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display
     
     alert('Internal bill generated and downloaded successfully!');
 }
@@ -430,6 +552,7 @@ function printBill() {
     }
     
     const billData = generateBill();
+    if (!billData) return; // Stock check failed
     
     // Create print window (Customer version - Grand Total only)
     const printWindow = window.open('', '_blank');
@@ -464,6 +587,7 @@ function printBill() {
             <table>
                 <thead>
                     <tr>
+                        <th>S.No</th>
                         <th>Item</th>
                         <th>Quantity</th>
                         <th>Rate</th>
@@ -471,7 +595,7 @@ function printBill() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${billData.items.map(item => {
+                    ${billData.items.map((item, index) => {
                         const formatQty = (qty) => {
                             if (qty === 0.5) return '1/2';
                             if (qty === 0.25) return '1/4';
@@ -481,6 +605,7 @@ function printBill() {
                         };
                         return `
                         <tr>
+                            <td style="text-align: center;">${index + 1}</td>
                             <td>${item.name}</td>
                             <td>${formatQty(item.quantity)} ${item.unit}</td>
                             <td>${formatCurrency(item.storeRate)}</td>
@@ -512,6 +637,7 @@ function printBill() {
     saveCart();
     renderCart();
     updateSummary();
+    renderItems(); // Refresh to update stock display
 }
 
 // Show QR code modal
@@ -558,6 +684,14 @@ function setupEventListeners() {
         const modal = document.getElementById('qrModal');
         if (e.target === modal) {
             closeModal();
+        }
+    });
+    
+    // Refresh stock data when page becomes visible (e.g., when returning from balance page)
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            loadStockData();
+            renderItems();
         }
     });
 }

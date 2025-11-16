@@ -242,10 +242,11 @@ const generateCustomerPDF = (billData) => {
     doc.line(leftMargin, 53, width - rightMargin, 53);
 
     const columns = [
-        { label: 'Item', width: 72, align: 'left', padding: 2, render: (item) => item.name.substring(0, 50) },
-        { label: 'Qty', width: 35, align: 'center', padding: 0, render: (item) => formatQuantityDisplay(item.quantity, item.unit) },
-        { label: 'Rate', width: 31, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.storeRate) },
-        { label: 'Amount', width: 32, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.amount) }
+        { label: 'S.No', width: 15, align: 'center', padding: 0, render: (item, index) => (index + 1).toString() },
+        { label: 'Item', width: 62, align: 'left', padding: 2, render: (item) => item.name.substring(0, 45) },
+        { label: 'Qty', width: 30, align: 'center', padding: 0, render: (item) => formatQuantityDisplay(item.quantity, item.unit) },
+        { label: 'Rate', width: 28, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.storeRate) },
+        { label: 'Amount', width: 30, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.amount) }
     ];
 
     let yPos = tableTop;
@@ -272,10 +273,10 @@ const generateCustomerPDF = (billData) => {
 
     // Table rows
     yPos += headerHeight;
-    items.forEach(item => {
+    items.forEach((item, index) => {
         xCursor = leftMargin;
         columns.forEach(col => {
-            const cellValue = col.render(item);
+            const cellValue = col.render(item, index);
             const textX = col.align === 'left'
                 ? xCursor + col.padding
                 : col.align === 'center'
@@ -344,12 +345,13 @@ const generateInternalPDF = (billData) => {
     doc.line(leftMargin, 51, width - rightMargin, 51);
 
     const columns = [
-        { label: 'Item', width: 60, align: 'left', padding: 2, render: (item) => item.name.substring(0, 45) },
-        { label: 'Qty', width: 20, align: 'center', padding: 0, render: (item) => formatQuantityDisplay(item.quantity, item.unit) },
-        { label: 'Rate', width: 25, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.storeRate) },
-        { label: 'Amount', width: 25, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.amount) },
-        { label: 'Cost', width: 20, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.cost) },
-        { label: 'Profit', width: 20, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.profit) }
+        { label: 'S.No', width: 12, align: 'center', padding: 0, render: (item, index) => (index + 1).toString() },
+        { label: 'Item', width: 53, align: 'left', padding: 2, render: (item) => item.name.substring(0, 40) },
+        { label: 'Qty', width: 18, align: 'center', padding: 0, render: (item) => formatQuantityDisplay(item.quantity, item.unit) },
+        { label: 'Rate', width: 22, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.storeRate) },
+        { label: 'Amount', width: 22, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.amount) },
+        { label: 'Cost', width: 18, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.cost) },
+        { label: 'Profit', width: 18, align: 'right', padding: 2, render: (item) => formatPlainAmount(item.profit) }
     ];
 
     let yPos = tableTop;
@@ -374,10 +376,10 @@ const generateInternalPDF = (billData) => {
     doc.setFontSize(tableFontSize);
 
     yPos += headerHeight;
-    items.forEach(item => {
+    items.forEach((item, index) => {
         xCursor = leftMargin;
         columns.forEach(col => {
-            const cellValue = col.render(item);
+            const cellValue = col.render(item, index);
             const textX = col.align === 'left'
                 ? xCursor + col.padding
                 : col.align === 'center'
