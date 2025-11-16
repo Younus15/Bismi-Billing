@@ -48,6 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
     applyFilter('month'); // Default to current month
     initializeCharts();
     renderStockBalance();
+    
+    // Listen for storage sync events
+    window.addEventListener('storageSync', () => {
+        loadItems();
+        loadStockData();
+        loadBills();
+        renderStockBalance();
+    });
+    
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'lastSync') {
+            loadItems();
+            loadStockData();
+            loadBills();
+            renderStockBalance();
+        }
+    });
 });
 
 // Load items from localStorage

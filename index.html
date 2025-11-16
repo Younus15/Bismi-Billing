@@ -21,6 +21,11 @@
             <a href="manage.html" class="nav-link">Manage Items</a>
             <a href="balance.html" class="nav-link">Balance Items</a>
             <a href="reports.html" class="nav-link">Reports</a>
+            <div class="sync-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="nav-link sync-btn" onclick="exportData()" title="Export Data" style="padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">📥 Export</button>
+                <button class="nav-link sync-btn" onclick="document.getElementById('importFile').click()" title="Import Data" style="padding: 0.5rem 1rem; background: #2ecc71; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">📤 Import</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            </div>
             <button class="nav-link logout-btn" onclick="logout(); window.location.href='login.html'">Logout</button>
         </nav>
     </header>

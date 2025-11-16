@@ -8,6 +8,21 @@ document.addEventListener('DOMContentLoaded', () => {
     loadItems();
     loadStockData();
     setupEventListeners();
+    
+    // Listen for storage sync events
+    window.addEventListener('storageSync', () => {
+        loadItems();
+        loadStockData();
+        renderStockTable();
+    });
+    
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'lastSync') {
+            loadItems();
+            loadStockData();
+            renderStockTable();
+        }
+    });
 });
 
 // Load items from localStorage

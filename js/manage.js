@@ -7,6 +7,19 @@ let editingItemId = null;
 document.addEventListener('DOMContentLoaded', () => {
     loadItems();
     setupEventListeners();
+    
+    // Listen for storage sync events
+    window.addEventListener('storageSync', () => {
+        loadItems();
+        renderItemsTable();
+    });
+    
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'lastSync') {
+            loadItems();
+            renderItemsTable();
+        }
+    });
 });
 
 // Load items from localStorage
@@ -260,6 +273,10 @@ function closeItemModal() {
     document.getElementById('itemForm').reset();
 }
 
+// Variables for bill upload
+let extractedRates = {};
+let ocrText = '';
+
 // Setup event listeners
 function setupEventListeners() {
     // Add item button
@@ -267,6 +284,12 @@ function setupEventListeners() {
     
     // Initialize items button
     document.getElementById('initializeItemsBtn').addEventListener('click', initializeDefaultItemsHandler);
+    
+    // Upload bill button
+    document.getElementById('uploadBillBtn').addEventListener('click', showUploadBillModal);
+    
+    // Bill image input change
+    document.getElementById('billImageInput').addEventListener('change', handleBillImageSelect);
     
     // Form submit
     document.getElementById('itemForm').addEventListener('submit', saveItem);
@@ -287,6 +310,283 @@ function setupEventListeners() {
         if (e.target === modal) {
             closeItemModal();
         }
+        const uploadModal = document.getElementById('uploadBillModal');
+        if (e.target === uploadModal) {
+            closeUploadBillModal();
+        }
     });
+}
+
+// Show upload bill modal
+function showUploadBillModal() {
+    const modal = document.getElementById('uploadBillModal');
+    modal.classList.add('show');
+    resetUploadBillModal();
+}
+
+// Close upload bill modal (global function)
+window.closeUploadBillModal = function() {
+    const modal = document.getElementById('uploadBillModal');
+    modal.classList.remove('show');
+    resetUploadBillModal();
+}
+
+// Reset upload bill modal
+function resetUploadBillModal() {
+    document.getElementById('billImageInput').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('ocrProgress').style.display = 'none';
+    document.getElementById('ocrResults').style.display = 'none';
+    document.getElementById('processBillBtn').disabled = true;
+    document.getElementById('updateRatesBtn').style.display = 'none';
+    extractedRates = {};
+    ocrText = '';
+}
+
+// Handle bill image selection
+function handleBillImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const preview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const processBtn = document.getElementById('processBillBtn');
+    
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+            processBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        alert('Please select a valid image file.');
+        event.target.value = '';
+    }
+}
+
+// Process bill image with OCR
+window.processBillImage = async function() {
+    const fileInput = document.getElementById('billImageInput');
+    const file = fileInput.files[0];
+    if (!file) return;
+    
+    const progressDiv = document.getElementById('ocrProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const resultsDiv = document.getElementById('ocrResults');
+    const extractedTextArea = document.getElementById('extractedText');
+    const processBtn = document.getElementById('processBillBtn');
+    
+    progressDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    processBtn.disabled = true;
+    
+    try {
+        progressText.textContent = 'Loading OCR engine...';
+        progressBar.style.width = '10%';
+        
+        // Initialize Tesseract
+        const { createWorker } = Tesseract;
+        const worker = await createWorker('eng');
+        
+        progressText.textContent = 'Recognizing text from image...';
+        progressBar.style.width = '30%';
+        
+        // Perform OCR with progress updates
+        const { data: { text } } = await worker.recognize(file, {
+            logger: (m) => {
+                if (m.status === 'recognizing text') {
+                    const progress = Math.min(95, 30 + (m.progress * 0.65));
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = `Recognizing... ${Math.round(m.progress * 100)}%`;
+                }
+            }
+        });
+        
+        // Terminate worker
+        await worker.terminate();
+        
+        progressBar.style.width = '70%';
+        progressText.textContent = 'Parsing rates...';
+        
+        ocrText = text;
+        extractedTextArea.value = text;
+        
+        // Parse rates from text
+        extractedRates = parseRatesFromText(text);
+        
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Complete!';
+        
+        // Display matched items
+        displayMatchedItems();
+        
+        resultsDiv.style.display = 'block';
+        document.getElementById('updateRatesBtn').style.display = 'inline-block';
+        
+    } catch (error) {
+        console.error('OCR Error:', error);
+        alert('Error processing image: ' + error.message);
+        progressDiv.style.display = 'none';
+        processBtn.disabled = false;
+    }
+}
+
+// Parse rates from OCR text
+function parseRatesFromText(text) {
+    const extractedRates = {};
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    // Load current items for matching
+    const currentItems = Storage.get('items') || [];
+    
+    // Common patterns to look for:
+    // 1. Item name followed by rate (e.g., "PALM OIL 1200" or "PALM.OIL 1200")
+    // 2. Item name and rate in same line
+    // 3. Rate numbers (typically 3-4 digits)
+    
+    lines.forEach((line, lineIndex) => {
+        const upperLine = line.toUpperCase();
+        
+        // Try to match each item
+        currentItems.forEach(item => {
+            const itemName = item.name.toUpperCase();
+            const itemNameVariations = [
+                itemName,
+                itemName.replace(/\./g, ' '),
+                itemName.replace(/\s+/g, ''),
+                itemName.replace(/[^A-Z0-9]/g, '')
+            ];
+            
+            // Check if line contains item name
+            const containsItemName = itemNameVariations.some(variation => {
+                // Check for partial matches (at least 4 characters)
+                if (variation.length >= 4) {
+                    return upperLine.includes(variation.substring(0, Math.min(8, variation.length)));
+                }
+                return false;
+            });
+            
+            if (containsItemName) {
+                // Extract rate from line (look for numbers)
+                const rateMatches = line.match(/\d+\.?\d*/g);
+                if (rateMatches && rateMatches.length > 0) {
+                    // Take the largest number (likely the rate)
+                    const foundRates = rateMatches.map(m => parseFloat(m)).filter(n => n > 0 && n < 100000);
+                    if (foundRates.length > 0) {
+                        const rate = Math.max(...foundRates);
+                        // Only update if we haven't found a rate for this item or if this rate seems more reasonable
+                        if (!extractedRates[item.name] || (rate > 10 && rate < 10000)) {
+                            extractedRates[item.name] = rate;
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Also try to find standalone rates that might be purchase rates
+        // Look for patterns like "RATE: 1200" or "PRICE: 1200" or just numbers
+        const ratePattern = /(?:RATE|PRICE|COST|AMOUNT|₹|RS\.?)\s*:?\s*(\d+\.?\d*)/gi;
+        const rateMatch = line.match(ratePattern);
+        if (rateMatch) {
+            rateMatch.forEach(match => {
+                const numMatch = match.match(/\d+\.?\d*/);
+                if (numMatch) {
+                    const rate = parseFloat(numMatch[0]);
+                    // Try to associate with nearby item names
+                    const nearbyItem = currentItems.find(item => {
+                        const itemName = item.name.toUpperCase();
+                        // Check 2 lines before and after
+                        for (let i = Math.max(0, lineIndex - 2); i <= Math.min(lines.length - 1, lineIndex + 2); i++) {
+                            if (lines[i].toUpperCase().includes(itemName.substring(0, Math.min(6, itemName.length)))) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+                    
+                    if (nearbyItem && (!extractedRates[nearbyItem.name] || rate > 10)) {
+                        extractedRates[nearbyItem.name] = rate;
+                    }
+                }
+            });
+        }
+    });
+    
+    return extractedRates;
+}
+
+// Display matched items
+function displayMatchedItems() {
+    const matchedDiv = document.getElementById('matchedItems');
+    const currentItems = Storage.get('items') || [];
+    
+    if (Object.keys(extractedRates).length === 0) {
+        matchedDiv.innerHTML = '<p style="color: #e74c3c;">No rates found. Please ensure the bill image is clear and contains item names and rates.</p>';
+        return;
+    }
+    
+    let html = '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<tr style="background: #f0f0f0;"><th style="padding: 8px; text-align: left;">Item Name</th><th style="padding: 8px; text-align: left;">Current Purchase Rate</th><th style="padding: 8px; text-align: left;">Extracted Rate</th></tr>';
+    
+    let matchCount = 0;
+    currentItems.forEach(item => {
+        if (extractedRates[item.name]) {
+            matchCount++;
+            const newRate = extractedRates[item.name];
+            const currentRate = item.purchaseRate;
+            const isDifferent = Math.abs(newRate - currentRate) > 0.01;
+            
+            html += `<tr style="border-bottom: 1px solid #ddd; ${isDifferent ? 'background: #fff3cd;' : ''}">`;
+            html += `<td style="padding: 8px;">${item.name}</td>`;
+            html += `<td style="padding: 8px;">${formatCurrency(currentRate)}</td>`;
+            html += `<td style="padding: 8px; font-weight: bold; color: ${isDifferent ? '#27ae60' : '#666'};">${formatCurrency(newRate)}</td>`;
+            html += `</tr>`;
+        }
+    });
+    
+    html += '</table>';
+    
+    if (matchCount === 0) {
+        html = '<p style="color: #e74c3c;">No matching items found. The extracted text may not match your item names.</p>';
+        html += '<p style="color: #666; font-size: 0.9em; margin-top: 10px;">Please review the extracted text above and manually update rates if needed.</p>';
+    } else {
+        html += `<p style="margin-top: 15px; color: #27ae60; font-weight: bold;">Found ${matchCount} matching item(s). Click "Update Purchase Rates" to apply changes.</p>`;
+    }
+    
+    matchedDiv.innerHTML = html;
+}
+
+// Update purchase rates (global function)
+window.updatePurchaseRates = function() {
+    if (Object.keys(extractedRates).length === 0) {
+        alert('No rates to update.');
+        return;
+    }
+    
+    const currentItems = Storage.get('items') || [];
+    let updateCount = 0;
+    
+    currentItems.forEach(item => {
+        if (extractedRates[item.name]) {
+            const newRate = extractedRates[item.name];
+            if (newRate > 0 && newRate !== item.purchaseRate) {
+                item.purchaseRate = newRate;
+                item.profitMargin = item.storeRate - item.purchaseRate;
+                updateCount++;
+            }
+        }
+    });
+    
+    if (updateCount > 0) {
+        Storage.set('items', currentItems);
+        renderItemsTable();
+        alert(`Successfully updated purchase rates for ${updateCount} item(s)!`);
+        closeUploadBillModal();
+    } else {
+        alert('No rates were updated. All rates may already be up to date.');
+    }
 }
 

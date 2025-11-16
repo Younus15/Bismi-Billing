@@ -9,15 +9,183 @@ const Storage = {
     
     set: (key, value) => {
         localStorage.setItem(key, JSON.stringify(value));
+        // Trigger storage event for sync (skip if setting lastSync itself)
+        if (key !== 'lastSync') {
+            Storage.triggerSync();
+        }
     },
     
     remove: (key) => {
         localStorage.removeItem(key);
+        // Trigger storage event for sync (skip if removing lastSync itself)
+        if (key !== 'lastSync') {
+            Storage.triggerSync();
+        }
     },
     
     clear: () => {
         localStorage.clear();
+        // Don't trigger sync on clear as it clears everything
+    },
+    
+    // Trigger sync across tabs/devices
+    triggerSync: () => {
+        // Store last sync timestamp (use direct setItem to avoid recursion)
+        const timestamp = new Date().toISOString();
+        localStorage.setItem('lastSync', timestamp);
+        // Dispatch custom event for same-tab sync
+        window.dispatchEvent(new Event('storageSync'));
+    },
+    
+    // Export all data for backup/sync
+    exportAll: () => {
+        const allData = {
+            items: Storage.get('items') || [],
+            stockData: Storage.get('stockData') || [],
+            bills: Storage.get('bills') || [],
+            cart: Storage.get('cart') || [],
+            nextBillSequence: Storage.get('nextBillSequence') || null,
+            exportDate: new Date().toISOString(),
+            version: '1.0'
+        };
+        return JSON.stringify(allData, null, 2);
+    },
+    
+    // Import all data from backup
+    importAll: (jsonData, merge = false) => {
+        try {
+            const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+            
+            if (merge) {
+                // Merge with existing data
+                const existingItems = Storage.get('items') || [];
+                const existingBills = Storage.get('bills') || [];
+                const existingStock = Storage.get('stockData') || [];
+                
+                // Merge items (avoid duplicates by ID)
+                if (data.items) {
+                    const mergedItems = [...existingItems];
+                    data.items.forEach(item => {
+                        const existingIndex = mergedItems.findIndex(i => i.id === item.id);
+                        if (existingIndex >= 0) {
+                            mergedItems[existingIndex] = item; // Update existing
+                        } else {
+                            mergedItems.push(item); // Add new
+                        }
+                    });
+                    Storage.set('items', mergedItems);
+                }
+                
+                // Merge bills (avoid duplicates by billNumber)
+                if (data.bills) {
+                    const mergedBills = [...existingBills];
+                    data.bills.forEach(bill => {
+                        const existingIndex = mergedBills.findIndex(b => b.billNumber === bill.billNumber);
+                        if (existingIndex >= 0) {
+                            mergedBills[existingIndex] = bill; // Update existing
+                        } else {
+                            mergedBills.push(bill); // Add new
+                        }
+                    });
+                    Storage.set('bills', mergedBills);
+                }
+                
+                // Merge stock data
+                if (data.stockData) {
+                    const mergedStock = [...existingStock];
+                    data.stockData.forEach(stock => {
+                        const existingIndex = mergedStock.findIndex(s => s.itemId === stock.itemId);
+                        if (existingIndex >= 0) {
+                            mergedStock[existingIndex] = stock; // Update existing
+                        } else {
+                            mergedStock.push(stock); // Add new
+                        }
+                    });
+                    Storage.set('stockData', mergedStock);
+                }
+            } else {
+                // Replace all data
+                if (data.items) Storage.set('items', data.items);
+                if (data.stockData) Storage.set('stockData', data.stockData);
+                if (data.bills) Storage.set('bills', data.bills);
+                if (data.cart) Storage.set('cart', data.cart);
+                if (data.nextBillSequence !== undefined) Storage.set('nextBillSequence', data.nextBillSequence);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Import error:', error);
+            return false;
+        }
+    },
+    
+    // Download data as file
+    downloadBackup: () => {
+        const data = Storage.exportAll();
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bismi-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+    
+    // Upload and import data from file
+    uploadBackup: (file, merge = false) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const success = Storage.importAll(e.target.result, merge);
+                if (success) {
+                    resolve(true);
+                } else {
+                    reject(new Error('Failed to import data'));
+                }
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
     }
+};
+
+// Global export/import functions
+window.exportData = function() {
+    try {
+        Storage.downloadBackup();
+        alert('Data exported successfully! You can now transfer this file to another device.');
+    } catch (error) {
+        alert('Error exporting data: ' + error.message);
+    }
+};
+
+window.importData = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.json')) {
+        alert('Please select a valid JSON file.');
+        return;
+    }
+    
+    const merge = confirm('Do you want to merge with existing data?\n\nClick OK to merge (keeps existing data and adds new)\nClick Cancel to replace all data');
+    
+    try {
+        await Storage.uploadBackup(file, merge);
+        alert('Data imported successfully! Please refresh the page to see the changes.');
+        
+        // Reload the page after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    } catch (error) {
+        alert('Error importing data: ' + error.message);
+    }
+    
+    // Reset file input
+    event.target.value = '';
 };
 
 // Format currency

@@ -12,6 +12,24 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCart();
     setupEventListeners();
     setupSearch();
+    
+    // Listen for storage sync events (for same-tab sync)
+    window.addEventListener('storageSync', () => {
+        // Reload data when sync event is triggered
+        loadItems();
+        loadStockData();
+        loadCart();
+    });
+    
+    // Listen for storage events from other tabs/windows
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'lastSync') {
+            // Data was updated in another tab, reload
+            loadItems();
+            loadStockData();
+            loadCart();
+        }
+    });
 });
 
 // Load items from localStorage

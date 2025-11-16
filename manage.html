@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
 </head>
 <body>
     <header>
@@ -20,6 +21,11 @@
             <a href="manage.html" class="nav-link active">Manage Items</a>
             <a href="balance.html" class="nav-link">Balance Items</a>
             <a href="reports.html" class="nav-link">Reports</a>
+            <div class="sync-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="nav-link sync-btn" onclick="exportData()" title="Export Data" style="padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">📥 Export</button>
+                <button class="nav-link sync-btn" onclick="document.getElementById('importFile').click()" title="Import Data" style="padding: 0.5rem 1rem; background: #2ecc71; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">📤 Import</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            </div>
             <button class="nav-link logout-btn" onclick="logout(); window.location.href='login.html'">Logout</button>
         </nav>
     </header>
@@ -33,6 +39,7 @@
             <div class="header-buttons">
                 <button class="btn btn-primary" id="addItemBtn">Add New Item</button>
                 <button class="btn btn-secondary" id="initializeItemsBtn">Initialize Default Items</button>
+                <button class="btn btn-success" id="uploadBillBtn" style="background: #27ae60;">📷 Upload Bill Image</button>
             </div>
         </div>
 
@@ -52,6 +59,41 @@
                     <!-- Items will be loaded dynamically -->
                 </tbody>
             </table>
+        </div>
+
+        <!-- Upload Bill Image Modal -->
+        <div id="uploadBillModal" class="modal">
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close" onclick="closeUploadBillModal()">&times;</span>
+                <h2>Upload Bill Image</h2>
+                <div style="margin: 20px 0;">
+                    <p style="color: #666; margin-bottom: 15px;">
+                        Upload a photo of your purchase bill. The system will automatically read the rates and update purchase rates for matching items.
+                    </p>
+                    <input type="file" id="billImageInput" accept="image/*" style="margin-bottom: 15px; width: 100%; padding: 10px; border: 2px dashed #27ae60; border-radius: 5px;">
+                    <div id="imagePreview" style="margin: 15px 0; text-align: center; display: none;">
+                        <img id="previewImg" src="" alt="Preview" style="max-width: 100%; max-height: 400px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    <div id="ocrProgress" style="display: none; margin: 15px 0;">
+                        <p style="color: #27ae60; font-weight: bold;">Processing image... Please wait.</p>
+                        <div style="background: #f0f0f0; border-radius: 10px; padding: 3px;">
+                            <div id="progressBar" style="background: #27ae60; height: 20px; border-radius: 10px; width: 0%; transition: width 0.3s;"></div>
+                        </div>
+                        <p id="progressText" style="margin-top: 10px; color: #666;">Initializing OCR...</p>
+                    </div>
+                    <div id="ocrResults" style="display: none; margin: 15px 0;">
+                        <h3>Extracted Text:</h3>
+                        <textarea id="extractedText" readonly style="width: 100%; height: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 12px;"></textarea>
+                        <h3 style="margin-top: 20px;">Found Items & Rates:</h3>
+                        <div id="matchedItems" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;"></div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" id="processBillBtn" onclick="processBillImage()" disabled>Process Bill</button>
+                    <button type="button" class="btn btn-success" id="updateRatesBtn" onclick="updatePurchaseRates()" style="display: none;">Update Purchase Rates</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeUploadBillModal()">Cancel</button>
+                </div>
+            </div>
         </div>
 
         <!-- Add/Edit Item Modal -->
