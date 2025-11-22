@@ -1,23 +1,25 @@
 // Item Management Application
 
 let items = [];
+let filteredItems = [];
 let editingItemId = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadItems();
     setupEventListeners();
+    setupSearch();
     
     // Listen for storage sync events
     window.addEventListener('storageSync', () => {
         loadItems();
-        renderItemsTable();
+        renderItemsGrid();
     });
     
     window.addEventListener('storage', (e) => {
         if (e.key === 'lastSync') {
             loadItems();
-            renderItemsTable();
+            renderItemsGrid();
         }
     });
 });
@@ -25,41 +27,145 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load items from localStorage
 function loadItems() {
     items = Storage.get('items') || [];
-    renderItemsTable();
+    renderItemsGrid();
 }
 
-// Render items table
-function renderItemsTable() {
-    const tbody = document.getElementById('itemsTableBody');
+// Get item image (same function as in app.js)
+function getItemImage(itemName) {
+    const name = itemName.toUpperCase();
+    
+    // Product-specific image URLs
+    if (name.includes('PALM.OIL') || name.includes('PALM OIL')) {
+        return 'https://content3.jdmagicbox.com/v2/comp/chennai/q2/044pxx44.xx44.100831150545.u1q2/catalogue/zion-oil-mill-madipakkam-chennai-coconut-oil-retailers-4xhsqk.jpg';
+    } else if (name.includes('PATTAI-1')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTw050gxB1lIsVp04FwWxZocZV2YmsFLnhJcA&s';
+    } else if (name.includes('PATTAI-2')) {
+        return 'https://d1sl07a7h3d3fr.cloudfront.net/common/master/pattai_50gm.jpg';
+    } else if (name.includes('ELLACHI')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyZQ5HvIpo0wSdIkU-EX3jZ00UCpjqbtVQrw&s';
+    } else if (name.includes('KRAMBU')) {
+        return 'https://shivaruthraexports.com/wp-content/uploads/2021/11/Cloves3.jpg';
+    } else if (name.includes('AJINOMOTO')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQV91sds0r3mXqWhJeRUk3zLmCZYPn4cvW4xw&s';
+    } else if (name.includes('VELLEM')) {
+        return 'https://nalamfoodscoimbatore.com/wp-content/uploads/2022/08/vellam.jpeg';
+    } else if (name.includes('ROCK SALT')) {
+        return 'https://cholaa.in/wp-content/uploads/2020/08/rocksaltcrystal-600x600.jpg';
+    } else if (name.includes('CHILLI')) {
+        return 'https://m.media-amazon.com/images/I/81eNgB1oJoL._AC_UF894,1000_QL80_.jpg';
+    } else if (name.includes('CHICKEN')) {
+        return 'https://m.media-amazon.com/images/I/616S788g46L._AC_UF894,1000_QL80_.jpg';
+    } else if (name.includes('MUTTON')) {
+        return 'https://m.media-amazon.com/images/I/71yjnNV9bUL._AC_UF350,350_QL80_.jpg';
+    } else if (name.includes('PULLI')) {
+        return 'https://fullofplants.com/wp-content/uploads/2023/05/what-is-tamarind-and-how-to-use-it-complete-guide-thumb-3.jpg';
+    } else if (name.includes('WHITE.ELLU') || (name.includes('ELLU') && !name.includes('VELLEM'))) {
+        return 'https://kingnqueenz.com/cdn/shop/products/whitesesameseedstillelluveluthathuonlinelongnqueenz_2048x.jpg?v=1666942225';
+    } else if (name.includes('KADUGU')) {
+        return 'https://daivikorganic.com/cdn/shop/products/3_1783c2bd-581b-4f02-a1ce-4f51a740cab1.png?v=1670417933';
+    } else if (name.includes('JEERAM')) {
+        return 'https://kuzhalisupermarket.com/wp-content/uploads/2023/05/unnamed-2.jpg';
+    } else if (name.includes('VENTHAIYAM')) {
+        return 'https://daivikorganic.com/cdn/shop/products/4_0afd354c-9d45-4104-aa3a-813dc7ed5c86_600x.png?v=1670416925';
+    } else if (name.includes('MILAGU')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYsZEjJoNqFAni--Euykl9ZImxjUrvY-f0Ig&s';
+    } else if (name.includes('MYSORE PARUPPU')) {
+        return 'https://m.media-amazon.com/images/I/41181y59fVL._AC_UF350,350_QL80_.jpg';
+    } else if (name.includes('SIRU PARUPPU')) {
+        return 'https://viha.online/cdn/shop/products/siruparupu_1080x.jpg?v=1619966867';
+    } else if (name.includes('THOORAM PARUPPU')) {
+        return 'https://v-myharvest-dev.blr1.vultrobjects.com/2025/03/70fd24b4-f480-4637-aeb3-fe9fb29119cc.webp';
+    } else if (name.includes('PARUPPU')) {
+        return 'https://m.media-amazon.com/images/I/41181y59fVL._AC_UF350,350_QL80_.jpg';
+    } else if (name.includes('APPALAM')) {
+        return 'https://aachifoods.com/cdn/shop/files/applam-appalam.webp?v=1756875842&width=1445';
+    } else if (name.includes('KESARI')) {
+        return 'https://5.imimg.com/data5/SELLER/Default/2020/9/CK/PC/JY/24447027/tiger-kesari-food-colour.jpg';
+    } else if (name.includes('MEAL MAKER')) {
+        return 'https://m.media-amazon.com/images/I/51-0ZfQo91L.jpg';
+    } else if (name.includes('VINEGAR')) {
+        return 'https://www.tastynibbles.in/cdn/shop/products/vinegar500ml2.jpg?v=1716581495';
+    } else if (name.includes('VERKADALAI')) {
+        return 'https://organicpositive.in/wp-content/uploads/2022/07/groundnut-peanut-organic-verkadalai-chennai-1_batcheditor_fotor.jpg';
+    } else if (name.includes('TURMERIC') || name.includes('TURME')) {
+        return 'https://m.media-amazon.com/images/I/71eYFtuTdTL.jpg';
+    } else if (name.includes('GARAM MASALA') || name.includes('GARAM')) {
+        return 'https://www.bbassets.com/media/uploads/p/l/40248540_1-sakthi-garam-masala.jpg';
+    } else if (name.includes('SAMBAR') && name.includes('POWDER')) {
+        return 'https://img.thecdn.in/271829/1672307948475_SKU-0576_0.jpeg?width=600&format=webp';
+    } else if (name.includes('RASAM') && name.includes('POWDER')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNLXL1Rk693Kg829ThUNLwla-QmPntJesKtQ&s';
+    } else if (name.includes('PEPPER') && name.includes('POWDER')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvdbt9AHIyv7JFAvpp_Aw6h7Xye46MujWpkQ&s';
+    } else if (name.includes('MALLI') && name.includes('POWDER')) {
+        return 'https://m.media-amazon.com/images/I/71uyrktjLhL.jpg';
+    } else if (name.includes('GUNDU') && name.includes('MILAGAI')) {
+        return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuj2gr5Qr3vMT3ZDxOgAhqThTH9SK0fv2ZqQ&s';
+    }
+    
+    // Default fallback
+    return 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=300&h=300&fit=crop';
+}
+
+// Render items grid
+function renderItemsGrid(searchTerm = '') {
+    const itemsGrid = document.getElementById('itemsGrid');
     
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No items found. Click "Initialize Default Items" to add items.</td></tr>';
+        itemsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 2rem;">No items found. Click "Initialize Default Items" to add items.</p>';
         return;
     }
     
-    tbody.innerHTML = items.map(item => {
+    // Filter items based on search term
+    if (searchTerm.trim() === '') {
+        filteredItems = items;
+    } else {
+        const searchLower = searchTerm.toLowerCase();
+        filteredItems = items.filter(item => 
+            item.name.toLowerCase().includes(searchLower)
+        );
+    }
+    
+    if (filteredItems.length === 0) {
+        itemsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 2rem;">No items found matching your search.</p>';
+        return;
+    }
+    
+    itemsGrid.innerHTML = filteredItems.map(item => {
+        const imageUrl = item.imageUrl || getItemImage(item.name);
         const profitMargin = item.storeRate - item.purchaseRate;
+        
         return `
-            <tr data-id="${item.id}">
-                <td>${item.name}</td>
-                <td>${item.unit}</td>
-                <td class="editable-rate" data-field="storeRate" data-item-id="${item.id}">
-                    <span class="rate-display">${formatCurrency(item.storeRate)}</span>
-                    <input type="number" class="rate-input" value="${item.storeRate}" step="0.01" min="0" style="display: none;">
-                </td>
-                <td class="editable-rate" data-field="purchaseRate" data-item-id="${item.id}">
-                    <span class="rate-display">${formatCurrency(item.purchaseRate)}</span>
-                    <input type="number" class="rate-input" value="${item.purchaseRate}" step="0.01" min="0" style="display: none;">
-                </td>
-                <td class="profit-margin" data-item-id="${item.id}">${formatCurrency(profitMargin)}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-edit" onclick="editItem(${item.id})">Edit Full</button>
-                        <button class="btn-delete" onclick="deleteItem(${item.id})">Delete</button>
+        <div class="item-card manage-item-card" data-id="${item.id}">
+            <img src="${imageUrl}" alt="${item.name}" class="item-image" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/150/27ae60/ffffff?text=' + encodeURIComponent('${item.name.substring(0,10)}')">
+            <h3>${item.name}</h3>
+            <div class="unit">per ${item.unit}</div>
+            <div class="manage-rates">
+                <div class="rate-group">
+                    <label>Store Rate:</label>
+                    <div class="editable-rate-card" data-field="storeRate" data-item-id="${item.id}">
+                        <span class="rate-display-card">${formatCurrency(item.storeRate)}</span>
+                        <input type="number" class="rate-input-card" value="${item.storeRate}" step="0.01" min="0" style="display: none;">
                     </div>
-                </td>
-            </tr>
-        `;
+                </div>
+                <div class="rate-group">
+                    <label>Purchase Rate:</label>
+                    <div class="editable-rate-card" data-field="purchaseRate" data-item-id="${item.id}">
+                        <span class="rate-display-card">${formatCurrency(item.purchaseRate)}</span>
+                        <input type="number" class="rate-input-card" value="${item.purchaseRate}" step="0.01" min="0" style="display: none;">
+                    </div>
+                </div>
+                <div class="rate-group profit-group">
+                    <label>Profit:</label>
+                    <span class="profit-display-card" data-item-id="${item.id}">${formatCurrency(profitMargin)}</span>
+                </div>
+            </div>
+            <div class="manage-actions">
+                <button class="btn-edit" onclick="editItem(${item.id})">Edit</button>
+                <button class="btn-delete" onclick="deleteItem(${item.id})">Delete</button>
+            </div>
+        </div>
+    `;
     }).join('');
     
     // Add event listeners for inline editing
@@ -68,14 +174,14 @@ function renderItemsTable() {
 
 // Setup inline editing for rates
 function setupInlineEditing() {
-    const editableCells = document.querySelectorAll('.editable-rate');
+    const editableCards = document.querySelectorAll('.editable-rate-card');
     
-    editableCells.forEach(cell => {
-        const display = cell.querySelector('.rate-display');
-        const input = cell.querySelector('.rate-input');
+    editableCards.forEach(card => {
+        const display = card.querySelector('.rate-display-card');
+        const input = card.querySelector('.rate-input-card');
         
-        // Double click to edit
-        display.addEventListener('dblclick', () => {
+        // Click to edit
+        display.addEventListener('click', () => {
             display.style.display = 'none';
             input.style.display = 'block';
             input.focus();
@@ -84,29 +190,32 @@ function setupInlineEditing() {
         
         // Save on blur (when user clicks away)
         input.addEventListener('blur', () => {
-            saveInlineRate(cell);
+            saveInlineRate(card);
         });
         
         // Save on Enter key
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                saveInlineRate(cell);
+                input.blur(); // Trigger blur to save
             }
         });
     });
 }
 
 // Save inline rate edit
-function saveInlineRate(cell) {
-    const display = cell.querySelector('.rate-display');
-    const input = cell.querySelector('.rate-input');
-    const field = cell.dataset.field;
-    const itemId = parseInt(cell.dataset.itemId);
+function saveInlineRate(card) {
+    const display = card.querySelector('.rate-display-card');
+    const input = card.querySelector('.rate-input-card');
+    const field = card.dataset.field;
+    const itemId = parseInt(card.dataset.itemId);
     const newValue = parseFloat(input.value);
     
     if (isNaN(newValue) || newValue < 0) {
         alert('Please enter a valid positive number.');
-        input.value = items.find(i => i.id === itemId)[field];
+        const item = items.find(i => i.id === itemId);
+        if (item) {
+            input.value = item[field];
+        }
         display.style.display = 'block';
         input.style.display = 'none';
         return;
@@ -126,19 +235,65 @@ function saveInlineRate(cell) {
         display.style.display = 'block';
         input.style.display = 'none';
         
-        // Update profit margin in the same row
-        const row = cell.closest('tr');
-        const profitCell = row.querySelector('.profit-margin');
-        if (profitCell) {
-            profitCell.textContent = formatCurrency(item.profitMargin);
+        // Update profit margin in the same card
+        const itemCard = card.closest('.manage-item-card');
+        const profitDisplay = itemCard.querySelector('.profit-display-card');
+        if (profitDisplay) {
+            profitDisplay.textContent = formatCurrency(item.profitMargin);
         }
         
         // Visual feedback
-        cell.style.backgroundColor = '#d4edda';
+        card.style.backgroundColor = '#d4edda';
         setTimeout(() => {
-            cell.style.backgroundColor = '';
+            card.style.backgroundColor = '';
         }, 1000);
     }
+}
+
+// Setup search functionality
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    
+    if (!searchInput || !searchBtn || !clearSearchBtn) return;
+    
+    // Search function
+    const performSearch = () => {
+        const searchTerm = searchInput.value.trim();
+        renderItemsGrid(searchTerm);
+        
+        // Show/hide clear button
+        if (searchTerm.length > 0) {
+            clearSearchBtn.style.display = 'flex';
+        } else {
+            clearSearchBtn.style.display = 'none';
+        }
+    };
+    
+    // Search on button click
+    searchBtn.addEventListener('click', performSearch);
+    
+    // Search on Enter key
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // Real-time search as user types (with debounce)
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(performSearch, 300);
+    });
+    
+    // Clear search
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearchBtn.style.display = 'none';
+        renderItemsGrid('');
+    });
 }
 
 // Add new item

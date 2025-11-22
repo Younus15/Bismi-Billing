@@ -34,7 +34,7 @@
         <div class="manage-header">
             <div>
                 <h2>Manage Items</h2>
-                <p class="edit-hint">💡 Double-click on Store Rate or Purchase Rate to edit directly in the table</p>
+                <p class="edit-hint">💡 Click on Store Rate or Purchase Rate to edit directly on the card</p>
             </div>
             <div class="header-buttons">
                 <button class="btn btn-primary" id="addItemBtn">Add New Item</button>
@@ -43,22 +43,28 @@
             </div>
         </div>
 
-        <div class="items-table-container">
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Item Name</th>
-                        <th>Unit</th>
-                        <th>Store Rate</th>
-                        <th>Purchase Rate</th>
-                        <th>Profit Margin</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="itemsTableBody">
-                    <!-- Items will be loaded dynamically -->
-                </tbody>
-            </table>
+        <div class="items-section">
+            <div class="items-header">
+                <h2>Items</h2>
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search items..." autocomplete="off">
+                    <button class="search-btn" id="searchBtn" title="Search">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                    <button class="clear-search-btn" id="clearSearchBtn" title="Clear search" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="items-grid" id="itemsGrid">
+                <!-- Items will be loaded dynamically -->
+            </div>
         </div>
 
         <!-- Upload Bill Image Modal -->
