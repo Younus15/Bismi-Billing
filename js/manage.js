@@ -332,7 +332,7 @@ window.deleteItem = function(itemId) {
     if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
         items = items.filter(i => i.id !== itemId);
         Storage.set('items', items);
-        renderItemsTable();
+        renderItemsGrid();
     }
 }
 
@@ -388,7 +388,7 @@ function saveItem(e) {
     }
     
     Storage.set('items', items);
-    renderItemsTable();
+    renderItemsGrid();
     closeItemModal();
 }
 
@@ -402,7 +402,7 @@ function initializeDefaultItemsHandler() {
     
     items = initializeDefaultItems();
     Storage.set('items', items);
-    renderItemsTable();
+    renderItemsGrid();
     alert('Default items initialized successfully!');
 }
 
@@ -737,7 +737,7 @@ window.updatePurchaseRates = function() {
     
     if (updateCount > 0) {
         Storage.set('items', currentItems);
-        renderItemsTable();
+        renderItemsGrid();
         alert(`Successfully updated purchase rates for ${updateCount} item(s)!`);
         closeUploadBillModal();
     } else {

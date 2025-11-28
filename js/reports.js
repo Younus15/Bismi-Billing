@@ -99,7 +99,7 @@ function renderStockBalance() {
     if (!tbody) return;
     
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No items found. Please add items in Manage Items page first.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No items found. Please add items in Manage Items page first.</td></tr>';
         return;
     }
     
@@ -117,14 +117,19 @@ function renderStockBalance() {
     });
     
     if (itemsWithStock.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No items with stock balance available.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No items with stock balance available.</td></tr>';
         return;
     }
     
-    tbody.innerHTML = itemsWithStock.map(item => {
+    // Calculate total value
+    let totalValue = 0;
+    
+    const rows = itemsWithStock.map(item => {
         const stock = stockMap[item.id];
         const currentStock = stock ? stock.quantity : 0;
         const lastUpdated = stock ? formatDate(new Date(stock.lastUpdated)) : 'Never';
+        const itemValue = currentStock * item.storeRate;
+        totalValue += itemValue;
         
         return `
             <tr>
@@ -133,10 +138,22 @@ function renderStockBalance() {
                 <td class="stock-quantity ${currentStock <= 0 ? 'low-stock' : currentStock <= 10 ? 'medium-stock' : ''}">
                     ${currentStock.toFixed(2)} ${item.unit}
                 </td>
+                <td>${formatCurrency(item.storeRate)}</td>
                 <td>${lastUpdated}</td>
             </tr>
         `;
     }).join('');
+    
+    // Add total row
+    const totalRow = `
+        <tr style="background: #f8f9fa; font-weight: bold; border-top: 2px solid #27ae60;">
+            <td colspan="3" style="text-align: right; padding-right: 1rem;">Total Value:</td>
+            <td style="color: #27ae60; font-size: 1.1em;">${formatCurrency(totalValue)}</td>
+            <td></td>
+        </tr>
+    `;
+    
+    tbody.innerHTML = rows + totalRow;
 }
 
 // Render reports table
